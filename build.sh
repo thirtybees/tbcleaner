@@ -13,6 +13,7 @@ FILES+=("${CWD_BASENAME}.php")
 FILES+=("cache/**")
 FILES+=("classes/**")
 FILES+=("upgrade/**")
+FILES+=("translations/**")
 FILES+=("views/**")
 
 MODULE_VERSION="$(sed -ne "s/\\\$this->version *= *['\"]\([^'\"]*\)['\"] *;.*/\1/p" ${CWD_BASENAME}.php)"
