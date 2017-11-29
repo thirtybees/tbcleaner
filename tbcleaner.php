@@ -27,13 +27,16 @@ if (!defined('_CAN_LOAD_FILES_') || !defined('_TB_VERSION_')) {
     exit;
 }
 
+/**
+ * Class TbCleaner
+ */
 class TbCleaner extends Module
 {
     public function __construct()
     {
         $this->name = 'tbcleaner';
         $this->tab = 'administration';
-        $this->version = '2.0.0';
+        $this->version = '2.0.1';
         $this->author = 'thirty bees';
         $this->need_instance = 0;
         $this->multishop_context = Shop::CONTEXT_ALL;
@@ -52,25 +55,25 @@ class TbCleaner extends Module
         if (Tools::isSubmit('submitCheckAndFix')) {
             $logs = self::checkAndFix();
             if (count($logs)) {
-                $conf = $this->l('The following queries successfuly fixed broken data:').'<br /><ul>';
+                $conf = $this->l('The following queries recovered broken data:').'<br /><ul>';
                 foreach ($logs as $query => $entries) {
                     $conf .= '<li>'.Tools::htmlentitiesUTF8($query).'<br />'.sprintf($this->l('%d line(s)'), $entries).'</li>';
                 }
                 $conf .= '</ul>';
             } else {
-                $conf = $this->l('Nothing that need to be fixed');
+                $conf = $this->l('Nothing that needs to be fixed');
             }
             $html .= $this->displayConfirmation($conf);
         } elseif (Tools::isSubmit('submitCleanAndOptimize')) {
             $logs = self::cleanAndOptimize();
             if (count($logs)) {
-                $conf = $this->l('The following queries successfuly cleaned your database:').'<br /><ul>';
+                $conf = $this->l('The following queries successfully cleaned your database:').'<br /><ul>';
                 foreach ($logs as $query => $entries) {
                     $conf .= '<li>'.Tools::htmlentitiesUTF8($query).'<br />'.sprintf($this->l('%d line(s)'), $entries).'</li>';
                 }
                 $conf .= '</ul>';
             } else {
-                $conf = $this->l('Nothing that need to be cleaned');
+                $conf = $this->l('Nothing that needs to be cleaned');
             }
             $html .= $this->displayConfirmation($conf);
         } elseif (Tools::getValue('submitTruncateCatalog') && Tools::getValue('checkTruncateCatalog')) {
@@ -122,7 +125,11 @@ class TbCleaner extends Module
             $key = $row['id_shop_group'].'-|-'.$row['id_shop'].'-|-'.$row['name'];
             if (in_array($key, $filteredConfiguration)) {
                 $query = 'DELETE FROM '._DB_PREFIX_.'configuration WHERE id_configuration = '.(int) $row['id_configuration'];
-                $db->Execute($query);
+                try {
+                    $db->Execute($query);
+                } catch (Exception $e) {
+                    Context::getContext()->controller->errors[] = $e->getMessage();
+                }
                 $logs[$query] = 1;
             } else {
                 $filteredConfiguration[] = $key;
@@ -132,12 +139,16 @@ class TbCleaner extends Module
 
         // Remove inexisting or monolanguage configuration value from configuration_lang
         $query = 'DELETE FROM `'._DB_PREFIX_.'configuration_lang`
-		WHERE `id_configuration` NOT IN (SELECT `id_configuration` FROM `'._DB_PREFIX_.'configuration`)
-		OR `id_configuration` IN (SELECT `id_configuration` FROM `'._DB_PREFIX_.'configuration` WHERE name IS NULL OR name = "")';
-        if ($db->Execute($query)) {
-            if ($affectedRows = $db->Affected_Rows()) {
-                $logs[$query] = $affectedRows;
+        WHERE `id_configuration` NOT IN (SELECT `id_configuration` FROM `'._DB_PREFIX_.'configuration`)
+        OR `id_configuration` IN (SELECT `id_configuration` FROM `'._DB_PREFIX_.'configuration` WHERE name IS NULL OR name = "")';
+        try {
+            if ($db->Execute($query)) {
+                if ($affectedRows = $db->Affected_Rows()) {
+                    $logs[$query] = $affectedRows;
+                }
             }
+        } catch (Exception $e) {
+            Context::getContext()->controller->errors[] = $e->getMessage();
         }
 
         // Simple Cascade Delete
@@ -151,10 +162,14 @@ class TbCleaner extends Module
             }
 
             $query = 'DELETE FROM `'._DB_PREFIX_.$queryArray[0].'` WHERE `'.$queryArray[1].'` NOT IN (SELECT `'.$queryArray[3].'` FROM `'._DB_PREFIX_.$queryArray[2].'`)';
-            if ($db->Execute($query)) {
-                if ($affectedRows = $db->Affected_Rows()) {
-                    $logs[$query] = $affectedRows;
+            try {
+                if ($db->Execute($query)) {
+                    if ($affectedRows = $db->Affected_Rows()) {
+                        $logs[$query] = $affectedRows;
+                    }
                 }
+            } catch (Exception $e) {
+                Context::getContext()->controller->errors[] = $e->getMessage();
             }
         }
 
@@ -166,17 +181,25 @@ class TbCleaner extends Module
             $idTable = 'id_'.preg_replace('/^'._DB_PREFIX_.'/', '', $table);
 
             $query = 'DELETE FROM `'.bqSQL($tableLang).'` WHERE `'.bqSQL($idTable).'` NOT IN (SELECT `'.bqSQL($idTable).'` FROM `'.bqSQL($table).'`)';
-            if ($db->Execute($query)) {
-                if ($affectedRows = $db->Affected_Rows()) {
-                    $logs[$query] = $affectedRows;
+            try {
+                if ($db->Execute($query)) {
+                    if ($affectedRows = $db->Affected_Rows()) {
+                        $logs[$query] = $affectedRows;
+                    }
                 }
+            } catch (Exception $e) {
+                Context::getContext()->controller->errors[] = $e->getMessage();
             }
 
             $query = 'DELETE FROM `'.bqSQL($tableLang).'` WHERE `id_lang` NOT IN (SELECT `id_lang` FROM `'._DB_PREFIX_.'lang`)';
-            if ($db->Execute($query)) {
-                if ($affectedRows = $db->Affected_Rows()) {
-                    $logs[$query] = $affectedRows;
+            try {
+                if ($db->Execute($query)) {
+                    if ($affectedRows = $db->Affected_Rows()) {
+                        $logs[$query] = $affectedRows;
+                    }
                 }
+            } catch (Exception $e) {
+                Context::getContext()->controller->errors[] = $e->getMessage();
             }
         }
 
@@ -192,26 +215,38 @@ class TbCleaner extends Module
             }
 
             $query = 'DELETE FROM `'.bqSQL($tableShop).'` WHERE `'.bqSQL($idTable).'` NOT IN (SELECT `'.bqSQL($idTable).'` FROM `'.bqSQL($table).'`)';
-            if ($db->Execute($query)) {
-                if ($affectedRows = $db->Affected_Rows()) {
-                    $logs[$query] = $affectedRows;
+            try {
+                if ($db->Execute($query)) {
+                    if ($affectedRows = $db->Affected_Rows()) {
+                        $logs[$query] = $affectedRows;
+                    }
                 }
+            } catch (Exception $e) {
+                Context::getContext()->controller->errors[] = $e->getMessage();
             }
 
             $query = 'DELETE FROM `'.bqSQL($tableShop).'` WHERE `id_shop` NOT IN (SELECT `id_shop` FROM `'._DB_PREFIX_.'shop`)';
-            if ($db->Execute($query)) {
-                if ($affectedRows = $db->Affected_Rows()) {
-                    $logs[$query] = $affectedRows;
+            try {
+                if ($db->Execute($query)) {
+                    if ($affectedRows = $db->Affected_Rows()) {
+                        $logs[$query] = $affectedRows;
+                    }
                 }
+            } catch (Exception $e) {
+                Context::getContext()->controller->errors[] = $e->getMessage();
             }
         }
 
         // stock_available
         $query = 'DELETE FROM `'._DB_PREFIX_.'stock_available` WHERE `id_shop` NOT IN (SELECT `id_shop` FROM `'._DB_PREFIX_.'shop`) AND `id_shop_group` NOT IN (SELECT `id_shop_group` FROM `'._DB_PREFIX_.'shop_group`)';
-        if ($db->Execute($query)) {
-            if ($affectedRows = $db->Affected_Rows()) {
-                $logs[$query] = $affectedRows;
+        try {
+            if ($db->Execute($query)) {
+                if ($affectedRows = $db->Affected_Rows()) {
+                    $logs[$query] = $affectedRows;
+                }
             }
+        } catch (Exception $e) {
+            Context::getContext()->controller->errors[] = $e->getMessage();
         }
 
         Category::regenerateEntireNtree();
@@ -225,169 +260,140 @@ class TbCleaner extends Module
 
     public static function getCheckAndFixQueries()
     {
-        $append = [];
-        if (version_compare('1.7.0.0', _PS_VERSION_, '>')) {
-            $append = [
-                ['access', 'id_tab', 'tab', 'id_tab'],
-                ['compare_product', 'id_compare', 'compare', 'id_compare'],
-                ['compare_product', 'id_product', 'product', 'id_product'],
-                ['compare', 'id_customer', 'customer', 'id_customer'],
-                ['module_access', 'id_module', 'module', 'id_module'],
-                ['scene_category', 'id_scene', 'scene', 'id_scene'],
-                ['scene_category', 'id_category', 'category', 'id_category'],
-                ['scene_products', 'id_scene', 'scene', 'id_scene'],
-                ['scene_products', 'id_product', 'product', 'id_product'],
-                ['theme_specific', 'id_theme', 'theme', 'id_theme'],
-                ['theme_specific', 'id_shop', 'shop', 'id_shop'],
-
-            ];
-        }
-
-        return array_merge(
-            $append, [
-                // 0 => DELETE FROM __table__, 1 => WHERE __id__ NOT IN, 2 => NOT IN __table__, 3 => __id__ used in the "NOT IN" table, 4 => module_name
-                ['access', 'id_profile', 'profile', 'id_profile'],
-                ['accessory', 'id_product_1', 'product', 'id_product'],
-                ['accessory', 'id_product_2', 'product', 'id_product'],
-                ['address_format', 'id_country', 'country', 'id_country'],
-                ['attribute', 'id_attribute_group', 'attribute_group', 'id_attribute_group'],
-                ['carrier_group', 'id_carrier', 'carrier', 'id_carrier'],
-                ['carrier_group', 'id_group', 'group', 'id_group'],
-                ['carrier_zone', 'id_carrier', 'carrier', 'id_carrier'],
-                ['carrier_zone', 'id_zone', 'zone', 'id_zone'],
-                ['cart_cart_rule', 'id_cart', 'cart', 'id_cart'],
-                ['cart_product', 'id_cart', 'cart', 'id_cart'],
-                ['cart_rule_carrier', 'id_cart_rule', 'cart_rule', 'id_cart_rule'],
-                ['cart_rule_carrier', 'id_carrier', 'carrier', 'id_carrier'],
-                ['cart_rule_combination', 'id_cart_rule_1', 'cart_rule', 'id_cart_rule'],
-                ['cart_rule_combination', 'id_cart_rule_2', 'cart_rule', 'id_cart_rule'],
-                ['cart_rule_country', 'id_cart_rule', 'cart_rule', 'id_cart_rule'],
-                ['cart_rule_country', 'id_country', 'country', 'id_country'],
-                ['cart_rule_group', 'id_cart_rule', 'cart_rule', 'id_cart_rule'],
-                ['cart_rule_group', 'id_group', 'group', 'id_group'],
-                ['cart_rule_product_rule_group', 'id_cart_rule', 'cart_rule', 'id_cart_rule'],
-                ['cart_rule_product_rule', 'id_product_rule_group', 'cart_rule_product_rule_group', 'id_product_rule_group'],
-                ['cart_rule_product_rule_value', 'id_product_rule', 'cart_rule_product_rule', 'id_product_rule'],
-                ['category_group', 'id_category', 'category', 'id_category'],
-                ['category_group', 'id_group', 'group', 'id_group'],
-                ['category_product', 'id_category', 'category', 'id_category'],
-                ['category_product', 'id_product', 'product', 'id_product'],
-                ['cms', 'id_cms_category', 'cms_category', 'id_cms_category'],
-                ['cms_block', 'id_cms_category', 'cms_category', 'id_cms_category', 'blockcms'],
-                ['cms_block_page', 'id_cms', 'cms', 'id_cms', 'blockcms'],
-                ['cms_block_page', 'id_cms_block', 'cms_block', 'id_cms_block', 'blockcms'],
-                ['connections', 'id_shop_group', 'shop_group', 'id_shop_group'],
-                ['connections', 'id_shop', 'shop', 'id_shop'],
-                ['connections_page', 'id_connections', 'connections', 'id_connections'],
-                ['connections_page', 'id_page', 'page', 'id_page'],
-                ['connections_source', 'id_connections', 'connections', 'id_connections'],
-                ['customer', 'id_shop_group', 'shop_group', 'id_shop_group'],
-                ['customer', 'id_shop', 'shop', 'id_shop'],
-                ['customer_group', 'id_group', 'group', 'id_group'],
-                ['customer_group', 'id_customer', 'customer', 'id_customer'],
-                ['customer_message', 'id_customer_thread', 'customer_thread', 'id_customer_thread'],
-                ['customer_thread', 'id_shop', 'shop', 'id_shop'],
-                ['customization', 'id_cart', 'cart', 'id_cart'],
-                ['customization_field', 'id_product', 'product', 'id_product'],
-                ['customized_data', 'id_customization', 'customization', 'id_customization'],
-                ['delivery', 'id_shop', 'shop', 'id_shop'],
-                ['delivery', 'id_shop_group', 'shop_group', 'id_shop_group'],
-                ['delivery', 'id_carrier', 'carrier', 'id_carrier'],
-                ['delivery', 'id_zone', 'zone', 'id_zone'],
-                ['editorial', 'id_shop', 'shop', 'id_shop', 'editorial'],
-                ['favorite_product', 'id_product', 'product', 'id_product', 'favoriteproducts'],
-                ['favorite_product', 'id_customer', 'customer', 'id_customer', 'favoriteproducts'],
-                ['favorite_product', 'id_shop', 'shop', 'id_shop', 'favoriteproducts'],
-                ['feature_product', 'id_feature', 'feature', 'id_feature'],
-                ['feature_product', 'id_product', 'product', 'id_product'],
-                ['feature_value', 'id_feature', 'feature', 'id_feature'],
-                ['group_reduction', 'id_group', 'group', 'id_group'],
-                ['group_reduction', 'id_category', 'category', 'id_category'],
-                ['homeslider', 'id_shop', 'shop', 'id_shop', 'homeslider'],
-                ['homeslider', 'id_homeslider_slides', 'homeslider_slides', 'id_homeslider_slides', 'homeslider'],
-                ['hook_module', 'id_hook', 'hook', 'id_hook'],
-                ['hook_module', 'id_module', 'module', 'id_module'],
-                ['hook_module_exceptions', 'id_hook', 'hook', 'id_hook'],
-                ['hook_module_exceptions', 'id_module', 'module', 'id_module'],
-                ['hook_module_exceptions', 'id_shop', 'shop', 'id_shop'],
-                ['image', 'id_product', 'product', 'id_product'],
-                ['message', 'id_cart', 'cart', 'id_cart'],
-                ['message_readed', 'id_message', 'message', 'id_message'],
-                ['message_readed', 'id_employee', 'employee', 'id_employee'],
-                ['module_access', 'id_profile', 'profile', 'id_profile'],
-                ['module_country', 'id_module', 'module', 'id_module'],
-                ['module_country', 'id_country', 'country', 'id_country'],
-                ['module_country', 'id_shop', 'shop', 'id_shop'],
-                ['module_currency', 'id_module', 'module', 'id_module'],
-                ['module_currency', 'id_currency', 'currency', 'id_currency'],
-                ['module_currency', 'id_shop', 'shop', 'id_shop'],
-                ['module_group', 'id_module', 'module', 'id_module'],
-                ['module_group', 'id_group', 'group', 'id_group'],
-                ['module_group', 'id_shop', 'shop', 'id_shop'],
-                ['module_preference', 'id_employee', 'employee', 'id_employee'],
-                ['orders', 'id_shop', 'shop', 'id_shop'],
-                ['orders', 'id_shop_group', 'group_shop', 'id_shop_group'],
-                ['order_carrier', 'id_order', 'orders', 'id_order'],
-                ['order_cart_rule', 'id_order', 'orders', 'id_order'],
-                ['order_detail', 'id_order', 'orders', 'id_order'],
-                ['order_detail_tax', 'id_order_detail', 'order_detail', 'id_order_detail'],
-                ['order_history', 'id_order', 'orders', 'id_order'],
-                ['order_invoice', 'id_order', 'orders', 'id_order'],
-                ['order_invoice_payment', 'id_order', 'orders', 'id_order'],
-                ['order_invoice_tax', 'id_order_invoice', 'order_invoice', 'id_order_invoice'],
-                ['order_return', 'id_order', 'orders', 'id_order'],
-                ['order_return_detail', 'id_order_return', 'order_return', 'id_order_return'],
-                ['order_slip', 'id_order', 'orders', 'id_order'],
-                ['order_slip_detail', 'id_order_slip', 'order_slip', 'id_order_slip'],
-                ['pack', 'id_product_pack', 'product', 'id_product'],
-                ['pack', 'id_product_item', 'product', 'id_product'],
-                ['page', 'id_page_type', 'page_type', 'id_page_type'],
-                ['page_viewed', 'id_shop', 'shop', 'id_shop'],
-                ['page_viewed', 'id_shop_group', 'shop_group', 'id_shop_group'],
-                ['page_viewed', 'id_date_range', 'date_range', 'id_date_range'],
-                ['product_attachment', 'id_attachment', 'attachment', 'id_attachment'],
-                ['product_attachment', 'id_product', 'product', 'id_product'],
-                ['product_attribute', 'id_product', 'product', 'id_product'],
-                ['product_attribute_combination', 'id_product_attribute', 'product_attribute', 'id_product_attribute'],
-                ['product_attribute_combination', 'id_attribute', 'attribute', 'id_attribute'],
-                ['product_attribute_image', 'id_image', 'image', 'id_image'],
-                ['product_attribute_image', 'id_product_attribute', 'product_attribute', 'id_product_attribute'],
-                ['product_carrier', 'id_product', 'product', 'id_product'],
-                ['product_carrier', 'id_shop', 'shop', 'id_shop'],
-                ['product_carrier', 'id_carrier_reference', 'carrier', 'id_reference'],
-                ['product_country_tax', 'id_product', 'product', 'id_product'],
-                ['product_country_tax', 'id_country', 'country', 'id_country'],
-                ['product_country_tax', 'id_tax', 'tax', 'id_tax'],
-                ['product_download', 'id_product', 'product', 'id_product'],
-                ['product_group_reduction_cache', 'id_product', 'product', 'id_product'],
-                ['product_group_reduction_cache', 'id_group', 'group', 'id_group'],
-                ['product_sale', 'id_product', 'product', 'id_product'],
-                ['product_supplier', 'id_product', 'product', 'id_product'],
-                ['product_supplier', 'id_supplier', 'supplier', 'id_supplier'],
-                ['product_tag', 'id_product', 'product', 'id_product'],
-                ['product_tag', 'id_tag', 'tag', 'id_tag'],
-                ['range_price', 'id_carrier', 'carrier', 'id_carrier'],
-                ['range_weight', 'id_carrier', 'carrier', 'id_carrier'],
-                ['referrer_cache', 'id_referrer', 'referrer', 'id_referrer'],
-                ['referrer_cache', 'id_connections_source', 'connections_source', 'id_connections_source'],
-                ['search_index', 'id_product', 'product', 'id_product'],
-                ['search_word', 'id_lang', 'lang', 'id_lang'],
-                ['search_word', 'id_shop', 'shop', 'id_shop'],
-                ['shop_url', 'id_shop', 'shop', 'id_shop'],
-                ['specific_price_priority', 'id_product', 'product', 'id_product'],
-                ['stock', 'id_warehouse', 'warehouse', 'id_warehouse'],
-                ['stock', 'id_product', 'product', 'id_product'],
-                ['stock_available', 'id_product', 'product', 'id_product'],
-                ['stock_mvt', 'id_stock', 'stock', 'id_stock'],
-                ['tab_module_preference', 'id_employee', 'employee', 'id_employee'],
-                ['tab_module_preference', 'id_tab', 'tab', 'id_tab'],
-                ['tax_rule', 'id_country', 'country', 'id_country'],
-                ['warehouse_carrier', 'id_warehouse', 'warehouse', 'id_warehouse'],
-                ['warehouse_carrier', 'id_carrier', 'carrier', 'id_carrier'],
-                ['warehouse_product_location', 'id_product', 'product', 'id_product'],
-                ['warehouse_product_location', 'id_warehouse', 'warehouse', 'id_warehouse'],
-            ]
-        );
+        return [
+            // 0 => DELETE FROM __table__, 1 => WHERE __id__ NOT IN, 2 => NOT IN __table__, 3 => __id__ used in the "NOT IN" table, 4 => module_name
+            ['access', 'id_profile', 'profile', 'id_profile'],
+            ['accessory', 'id_product_1', 'product', 'id_product'],
+            ['accessory', 'id_product_2', 'product', 'id_product'],
+            ['address_format', 'id_country', 'country', 'id_country'],
+            ['attribute', 'id_attribute_group', 'attribute_group', 'id_attribute_group'],
+            ['carrier_group', 'id_carrier', 'carrier', 'id_carrier'],
+            ['carrier_group', 'id_group', 'group', 'id_group'],
+            ['carrier_zone', 'id_carrier', 'carrier', 'id_carrier'],
+            ['carrier_zone', 'id_zone', 'zone', 'id_zone'],
+            ['cart_cart_rule', 'id_cart', 'cart', 'id_cart'],
+            ['cart_product', 'id_cart', 'cart', 'id_cart'],
+            ['cart_rule_carrier', 'id_cart_rule', 'cart_rule', 'id_cart_rule'],
+            ['cart_rule_carrier', 'id_carrier', 'carrier', 'id_carrier'],
+            ['cart_rule_combination', 'id_cart_rule_1', 'cart_rule', 'id_cart_rule'],
+            ['cart_rule_combination', 'id_cart_rule_2', 'cart_rule', 'id_cart_rule'],
+            ['cart_rule_country', 'id_cart_rule', 'cart_rule', 'id_cart_rule'],
+            ['cart_rule_country', 'id_country', 'country', 'id_country'],
+            ['cart_rule_group', 'id_cart_rule', 'cart_rule', 'id_cart_rule'],
+            ['cart_rule_group', 'id_group', 'group', 'id_group'],
+            ['cart_rule_product_rule_group', 'id_cart_rule', 'cart_rule', 'id_cart_rule'],
+            ['cart_rule_product_rule', 'id_product_rule_group', 'cart_rule_product_rule_group', 'id_product_rule_group'],
+            ['cart_rule_product_rule_value', 'id_product_rule', 'cart_rule_product_rule', 'id_product_rule'],
+            ['category_group', 'id_category', 'category', 'id_category'],
+            ['category_group', 'id_group', 'group', 'id_group'],
+            ['category_product', 'id_category', 'category', 'id_category'],
+            ['category_product', 'id_product', 'product', 'id_product'],
+            ['cms', 'id_cms_category', 'cms_category', 'id_cms_category'],
+            ['cms_block', 'id_cms_category', 'cms_category', 'id_cms_category', 'blockcms'],
+            ['cms_block_page', 'id_cms', 'cms', 'id_cms', 'blockcms'],
+            ['cms_block_page', 'id_cms_block', 'cms_block', 'id_cms_block', 'blockcms'],
+            ['connections', 'id_shop_group', 'shop_group', 'id_shop_group'],
+            ['connections', 'id_shop', 'shop', 'id_shop'],
+            ['connections_page', 'id_connections', 'connections', 'id_connections'],
+            ['connections_page', 'id_page', 'page', 'id_page'],
+            ['connections_source', 'id_connections', 'connections', 'id_connections'],
+            ['customer', 'id_shop_group', 'shop_group', 'id_shop_group'],
+            ['customer', 'id_shop', 'shop', 'id_shop'],
+            ['customer_group', 'id_group', 'group', 'id_group'],
+            ['customer_group', 'id_customer', 'customer', 'id_customer'],
+            ['customer_message', 'id_customer_thread', 'customer_thread', 'id_customer_thread'],
+            ['customer_thread', 'id_shop', 'shop', 'id_shop'],
+            ['customization', 'id_cart', 'cart', 'id_cart'],
+            ['customization_field', 'id_product', 'product', 'id_product'],
+            ['customized_data', 'id_customization', 'customization', 'id_customization'],
+            ['delivery', 'id_shop', 'shop', 'id_shop'],
+            ['delivery', 'id_shop_group', 'shop_group', 'id_shop_group'],
+            ['delivery', 'id_carrier', 'carrier', 'id_carrier'],
+            ['delivery', 'id_zone', 'zone', 'id_zone'],
+            ['editorial', 'id_shop', 'shop', 'id_shop', 'editorial'],
+            ['favorite_product', 'id_product', 'product', 'id_product', 'favoriteproducts'],
+            ['favorite_product', 'id_customer', 'customer', 'id_customer', 'favoriteproducts'],
+            ['favorite_product', 'id_shop', 'shop', 'id_shop', 'favoriteproducts'],
+            ['feature_product', 'id_feature', 'feature', 'id_feature'],
+            ['feature_product', 'id_product', 'product', 'id_product'],
+            ['feature_value', 'id_feature', 'feature', 'id_feature'],
+            ['group_reduction', 'id_group', 'group', 'id_group'],
+            ['group_reduction', 'id_category', 'category', 'id_category'],
+            ['homeslider', 'id_shop', 'shop', 'id_shop', 'homeslider'],
+            ['homeslider', 'id_homeslider_slides', 'homeslider_slides', 'id_homeslider_slides', 'homeslider'],
+            ['hook_module', 'id_hook', 'hook', 'id_hook'],
+            ['hook_module', 'id_module', 'module', 'id_module'],
+            ['hook_module_exceptions', 'id_hook', 'hook', 'id_hook'],
+            ['hook_module_exceptions', 'id_module', 'module', 'id_module'],
+            ['hook_module_exceptions', 'id_shop', 'shop', 'id_shop'],
+            ['image', 'id_product', 'product', 'id_product'],
+            ['message', 'id_cart', 'cart', 'id_cart'],
+            ['message_readed', 'id_message', 'message', 'id_message'],
+            ['message_readed', 'id_employee', 'employee', 'id_employee'],
+            ['module_access', 'id_profile', 'profile', 'id_profile'],
+            ['module_preference', 'id_employee', 'employee', 'id_employee'],
+            ['orders', 'id_shop', 'shop', 'id_shop'],
+            ['orders', 'id_shop_group', 'group_shop', 'id_shop_group'],
+            ['order_carrier', 'id_order', 'orders', 'id_order'],
+            ['order_cart_rule', 'id_order', 'orders', 'id_order'],
+            ['order_detail', 'id_order', 'orders', 'id_order'],
+            ['order_detail_tax', 'id_order_detail', 'order_detail', 'id_order_detail'],
+            ['order_history', 'id_order', 'orders', 'id_order'],
+            ['order_invoice', 'id_order', 'orders', 'id_order'],
+            ['order_invoice_payment', 'id_order', 'orders', 'id_order'],
+            ['order_invoice_tax', 'id_order_invoice', 'order_invoice', 'id_order_invoice'],
+            ['order_return', 'id_order', 'orders', 'id_order'],
+            ['order_return_detail', 'id_order_return', 'order_return', 'id_order_return'],
+            ['order_slip', 'id_order', 'orders', 'id_order'],
+            ['order_slip_detail', 'id_order_slip', 'order_slip', 'id_order_slip'],
+            ['pack', 'id_product_pack', 'product', 'id_product'],
+            ['pack', 'id_product_item', 'product', 'id_product'],
+            ['page', 'id_page_type', 'page_type', 'id_page_type'],
+            ['page_viewed', 'id_shop', 'shop', 'id_shop'],
+            ['page_viewed', 'id_shop_group', 'shop_group', 'id_shop_group'],
+            ['page_viewed', 'id_date_range', 'date_range', 'id_date_range'],
+            ['product_attachment', 'id_attachment', 'attachment', 'id_attachment'],
+            ['product_attachment', 'id_product', 'product', 'id_product'],
+            ['product_attribute', 'id_product', 'product', 'id_product'],
+            ['product_attribute_combination', 'id_product_attribute', 'product_attribute', 'id_product_attribute'],
+            ['product_attribute_combination', 'id_attribute', 'attribute', 'id_attribute'],
+            ['product_attribute_image', 'id_image', 'image', 'id_image'],
+            ['product_attribute_image', 'id_product_attribute', 'product_attribute', 'id_product_attribute'],
+            ['product_carrier', 'id_product', 'product', 'id_product'],
+            ['product_carrier', 'id_shop', 'shop', 'id_shop'],
+            ['product_carrier', 'id_carrier_reference', 'carrier', 'id_reference'],
+            ['product_country_tax', 'id_product', 'product', 'id_product'],
+            ['product_country_tax', 'id_country', 'country', 'id_country'],
+            ['product_country_tax', 'id_tax', 'tax', 'id_tax'],
+            ['product_download', 'id_product', 'product', 'id_product'],
+            ['product_group_reduction_cache', 'id_product', 'product', 'id_product'],
+            ['product_group_reduction_cache', 'id_group', 'group', 'id_group'],
+            ['product_sale', 'id_product', 'product', 'id_product'],
+            ['product_supplier', 'id_product', 'product', 'id_product'],
+            ['product_supplier', 'id_supplier', 'supplier', 'id_supplier'],
+            ['product_tag', 'id_product', 'product', 'id_product'],
+            ['product_tag', 'id_tag', 'tag', 'id_tag'],
+            ['range_price', 'id_carrier', 'carrier', 'id_carrier'],
+            ['range_weight', 'id_carrier', 'carrier', 'id_carrier'],
+            ['referrer_cache', 'id_referrer', 'referrer', 'id_referrer'],
+            ['referrer_cache', 'id_connections_source', 'connections_source', 'id_connections_source'],
+            ['search_index', 'id_product', 'product', 'id_product'],
+            ['search_word', 'id_lang', 'lang', 'id_lang'],
+            ['search_word', 'id_shop', 'shop', 'id_shop'],
+            ['shop_url', 'id_shop', 'shop', 'id_shop'],
+            ['specific_price_priority', 'id_product', 'product', 'id_product'],
+            ['stock', 'id_warehouse', 'warehouse', 'id_warehouse'],
+            ['stock', 'id_product', 'product', 'id_product'],
+            ['stock_available', 'id_product', 'product', 'id_product'],
+            ['stock_mvt', 'id_stock', 'stock', 'id_stock'],
+            ['tab_module_preference', 'id_employee', 'employee', 'id_employee'],
+            ['tab_module_preference', 'id_tab', 'tab', 'id_tab'],
+            ['tax_rule', 'id_country', 'country', 'id_country'],
+            ['warehouse_carrier', 'id_warehouse', 'warehouse', 'id_warehouse'],
+            ['warehouse_carrier', 'id_carrier', 'carrier', 'id_carrier'],
+            ['warehouse_product_location', 'id_product', 'product', 'id_product'],
+            ['warehouse_product_location', 'id_warehouse', 'warehouse', 'id_warehouse'],
+        ];
     }
 
     protected static function bulle($array)
@@ -473,9 +479,21 @@ class TbCleaner extends Module
             case 'catalog':
                 $idHome = $this->getMultiShopValues('PS_HOME_CATEGORY');
                 $idRoot = $this->getMultiShopValues('PS_ROOT_CATEGORY');
-                $db->execute('DELETE FROM `'._DB_PREFIX_.'category` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
-                $db->execute('DELETE FROM `'._DB_PREFIX_.'category_lang` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
-                $db->execute('DELETE FROM `'._DB_PREFIX_.'category_shop` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
+                try {
+                    $db->execute('DELETE FROM `'._DB_PREFIX_.'category` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
+                } catch (Exception $e) {
+                    $this->context->controller->errors[] = $e->getMessage();
+                }
+                try {
+                    $db->execute('DELETE FROM `'._DB_PREFIX_.'category_lang` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
+                } catch (Exception $e) {
+                    $this->context->controller->errors[] = $e->getMessage();
+                }
+                try {
+                    $db->execute('DELETE FROM `'._DB_PREFIX_.'category_shop` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
+                } catch (Exception $e) {
+                    $this->context->controller->errors[] = $e->getMessage();
+                }
                 foreach (scandir(_PS_CAT_IMG_DIR_) as $dir) {
                     if (preg_match('/^[0-9]+(\-(.*))?\.jpg$/', $dir)) {
                         unlink(_PS_CAT_IMG_DIR_.$dir);
@@ -483,9 +501,17 @@ class TbCleaner extends Module
                 }
                 $tables = self::getCatalogRelatedTables();
                 foreach ($tables as $table) {
-                    $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
+                    try {
+                        $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
+                    } catch (Exception $e) {
+                        $this->context->controller->errors[] = $e->getMessage();
+                    }
                 }
-                $db->execute('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_manufacturer > 0 OR id_supplier > 0 OR id_warehouse > 0');
+                try {
+                    $db->execute('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_manufacturer > 0 OR id_supplier > 0 OR id_warehouse > 0');
+                } catch (Exception $e) {
+                    $this->context->controller->errors[] = $e->getMessage();
+                }
 
                 Image::deleteAllImages(_PS_PROD_IMG_DIR_);
                 if (!file_exists(_PS_PROD_IMG_DIR_)) {
@@ -519,15 +545,34 @@ class TbCleaner extends Module
                 }
 
                 foreach ($tables as $table) {
-                    $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
+                    try {
+                        $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
+                    } catch (Exception $e) {
+                        $this->context->controller->errors[] = $e->getMessage();
+                    }
                 }
-                $db->execute('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_customer > 0');
-                $db->execute('UPDATE `'._DB_PREFIX_.'employee` SET `id_last_order` = 0,`id_last_customer_message` = 0,`id_last_customer` = 0');
+                try {
+                    $db->execute('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_customer > 0');
+                } catch (Exception $e) {
+                    $this->context->controller->errors[] = $e->getMessage();
+                }
+
+                try {
+                    $db->execute('UPDATE `'._DB_PREFIX_.'employee` SET `id_last_order` = 0,`id_last_customer_message` = 0,`id_last_customer` = 0');
+                } catch (Exception $e) {
+                    $this->context->controller->errors[] = $e->getMessage();
+                }
 
                 break;
         }
+
         self::clearAllCaches();
-        $db->execute('SET FOREIGN_KEY_CHECKS = 1;');
+
+        try {
+            $db->execute('SET FOREIGN_KEY_CHECKS = 1;');
+        } catch (Exception $e) {
+            $this->context->controller->errors[] = $e->getMessage();
+        }
     }
 
     protected function getMultiShopValues($key)
@@ -550,94 +595,79 @@ class TbCleaner extends Module
 
     public static function getCatalogRelatedTables()
     {
-        $append = [];
-        if (version_compare('1.7.0.0', _PS_VERSION_, '>')) {
-            $append = [
-                'compare_product',
-                'scene_products',
-                'scene',
-                'scene_category',
-                'scene_lang',
-                'scene_products',
-                'scene_shop',
-            ];
-        }
-
-        return array_merge(
-            $append, [
-                'product',
-                'product_shop',
-                'feature_product',
-                'product_lang',
-                'category_product',
-                'product_tag',
-                'tag',
-                'image',
-                'image_lang',
-                'image_shop',
-                'specific_price',
-                'specific_price_priority',
-                'product_carrier',
-                'cart_product',
-                'product_attachment',
-                'product_country_tax',
-                'product_download',
-                'product_group_reduction_cache',
-                'product_sale',
-                'product_supplier',
-                'warehouse_product_location',
-                'stock',
-                'stock_available',
-                'stock_mvt',
-                'customization',
-                'customization_field',
-                'supply_order_detail',
-                'attribute_impact',
-                'product_attribute',
-                'product_attribute_shop',
-                'product_attribute_combination',
-                'product_attribute_image',
-                'attribute_impact',
-                'attribute_lang',
-                'attribute_group',
-                'attribute_group_lang',
-                'attribute_group_shop',
-                'attribute_shop',
-                'product_attribute',
-                'product_attribute_shop',
-                'product_attribute_combination',
-                'product_attribute_image',
-                'stock_available',
-                'manufacturer',
-                'manufacturer_lang',
-                'manufacturer_shop',
-                'supplier',
-                'supplier_lang',
-                'supplier_shop',
-                'customization',
-                'customization_field',
-                'customization_field_lang',
-                'customized_data',
-                'feature',
-                'feature_lang',
-                'feature_product',
-                'feature_shop',
-                'feature_value',
-                'feature_value_lang',
-                'pack',
-                'search_index',
-                'search_word',
-                'specific_price',
-                'specific_price_priority',
-                'specific_price_rule',
-                'specific_price_rule_condition',
-                'specific_price_rule_condition_group',
-                'stock',
-                'stock_available',
-                'stock_mvt',
-                'warehouse',
-            ]
-        );
+        return [
+            'product',
+            'product_shop',
+            'feature_product',
+            'product_lang',
+            'category_product',
+            'product_tag',
+            'tag',
+            'image',
+            'image_lang',
+            'image_shop',
+            'specific_price',
+            'specific_price_priority',
+            'product_carrier',
+            'cart_product',
+            'product_attachment',
+            'product_country_tax',
+            'product_download',
+            'product_group_reduction_cache',
+            'product_sale',
+            'product_supplier',
+            'warehouse_product_location',
+            'stock',
+            'stock_available',
+            'stock_mvt',
+            'customization',
+            'customization_field',
+            'supply_order_detail',
+            'attribute_impact',
+            'product_attribute',
+            'product_attribute_shop',
+            'product_attribute_combination',
+            'product_attribute_image',
+            'attribute_impact',
+            'attribute_lang',
+            'attribute_group',
+            'attribute_group_lang',
+            'attribute_group_shop',
+            'attribute_shop',
+            'product_attribute',
+            'product_attribute_shop',
+            'product_attribute_combination',
+            'product_attribute_image',
+            'stock_available',
+            'manufacturer',
+            'manufacturer_lang',
+            'manufacturer_shop',
+            'supplier',
+            'supplier_lang',
+            'supplier_shop',
+            'customization',
+            'customization_field',
+            'customization_field_lang',
+            'customized_data',
+            'feature',
+            'feature_lang',
+            'feature_product',
+            'feature_shop',
+            'feature_value',
+            'feature_value_lang',
+            'pack',
+            'search_index',
+            'search_word',
+            'specific_price',
+            'specific_price_priority',
+            'specific_price_rule',
+            'specific_price_rule_condition',
+            'specific_price_rule_condition_group',
+            'stock',
+            'stock_available',
+            'stock_mvt',
+            'warehouse',
+        ];
     }
 
     public static function getSalesRelatedTables()
