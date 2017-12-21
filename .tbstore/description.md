@@ -1,0 +1,1 @@
+The tb Cleaner module allows you to delete data in your shop like test orders, test user accounts, and demo data. 
