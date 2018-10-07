@@ -6,6 +6,7 @@ tags:
   - delete test orders
   - clean database
   - delete
+  - tbcleaner
 description_short: The tb Cleaner module will allow you to delete the test orders from your shop.
 description: description.md
 images:

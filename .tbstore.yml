@@ -3,11 +3,12 @@ compatible_versions: 1.0.0+
 author: thirty bees
 category: administration
 tags:
-  - delete test orders
-  - clean database
-  - delete
+- delete test orders
+- clean database
+- delete
+- tbcleaner
 description_short: The tb Cleaner module will allow you to delete the test orders from your shop.
 description: description.md
 images:
-  - image-1.png
+- image-1.png
 license: MIT
