@@ -39,14 +39,12 @@ class TbCleaner extends Module
         $this->version = '2.0.2';
         $this->author = 'thirty bees';
         $this->need_instance = 0;
-        $this->multishop_context = Shop::CONTEXT_ALL;
 
         $this->bootstrap = true;
         parent::__construct();
 
         $this->displayName = $this->l('thirty bees cleaner');
         $this->description = $this->l('Check and fix functional integrity constraints and remove default data');
-        $this->secure_key = Tools::encrypt($this->name);
     }
 
     public function getContent()
