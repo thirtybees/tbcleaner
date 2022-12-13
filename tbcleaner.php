@@ -138,12 +138,7 @@ class TbCleaner extends Module
             $key = $row['id_shop_group'].'-|-'.$row['id_shop'].'-|-'.$row['name'];
             if (in_array($key, $filteredConfiguration)) {
                 $query = 'DELETE FROM '._DB_PREFIX_.'configuration WHERE id_configuration = '.(int) $row['id_configuration'];
-                try {
-                    $db->Execute($query);
-                } catch (Exception $e) {
-                    Context::getContext()->controller->errors[] = $e->getMessage();
-                }
-                $logs[$query] = 1;
+                static::executeStatement($query, $logs);
             } else {
                 $filteredConfiguration[] = $key;
             }
@@ -154,15 +149,8 @@ class TbCleaner extends Module
         $query = 'DELETE FROM `'._DB_PREFIX_.'configuration_lang`
         WHERE `id_configuration` NOT IN (SELECT `id_configuration` FROM `'._DB_PREFIX_.'configuration`)
         OR `id_configuration` IN (SELECT `id_configuration` FROM `'._DB_PREFIX_.'configuration` WHERE name IS NULL OR name = "")';
-        try {
-            if ($db->Execute($query)) {
-                if ($affectedRows = $db->Affected_Rows()) {
-                    $logs[$query] = $affectedRows;
-                }
-            }
-        } catch (Exception $e) {
-            Context::getContext()->controller->errors[] = $e->getMessage();
-        }
+
+        static::executeStatement($query, $logs);
 
         // Simple Cascade Delete
         $queries = self::getCheckAndFixQueries();
@@ -175,15 +163,7 @@ class TbCleaner extends Module
             }
 
             $query = 'DELETE FROM `'._DB_PREFIX_.$queryArray[0].'` WHERE `'.$queryArray[1].'` NOT IN (SELECT `'.$queryArray[3].'` FROM `'._DB_PREFIX_.$queryArray[2].'`)';
-            try {
-                if ($db->Execute($query)) {
-                    if ($affectedRows = $db->Affected_Rows()) {
-                        $logs[$query] = $affectedRows;
-                    }
-                }
-            } catch (Exception $e) {
-                Context::getContext()->controller->errors[] = $e->getMessage();
-            }
+            static::executeStatement($query, $logs);
         }
 
         // _lang table cleaning
@@ -194,26 +174,10 @@ class TbCleaner extends Module
             $idTable = 'id_'.preg_replace('/^'._DB_PREFIX_.'/', '', $table);
 
             $query = 'DELETE FROM `'.bqSQL($tableLang).'` WHERE `'.bqSQL($idTable).'` NOT IN (SELECT `'.bqSQL($idTable).'` FROM `'.bqSQL($table).'`)';
-            try {
-                if ($db->Execute($query)) {
-                    if ($affectedRows = $db->Affected_Rows()) {
-                        $logs[$query] = $affectedRows;
-                    }
-                }
-            } catch (Exception $e) {
-                Context::getContext()->controller->errors[] = $e->getMessage();
-            }
+            static::executeStatement($query, $logs);
 
             $query = 'DELETE FROM `'.bqSQL($tableLang).'` WHERE `id_lang` NOT IN (SELECT `id_lang` FROM `'._DB_PREFIX_.'lang`)';
-            try {
-                if ($db->Execute($query)) {
-                    if ($affectedRows = $db->Affected_Rows()) {
-                        $logs[$query] = $affectedRows;
-                    }
-                }
-            } catch (Exception $e) {
-                Context::getContext()->controller->errors[] = $e->getMessage();
-            }
+            static::executeStatement($query, $logs);
         }
 
         // _shop table cleaning
@@ -228,39 +192,15 @@ class TbCleaner extends Module
             }
 
             $query = 'DELETE FROM `'.bqSQL($tableShop).'` WHERE `'.bqSQL($idTable).'` NOT IN (SELECT `'.bqSQL($idTable).'` FROM `'.bqSQL($table).'`)';
-            try {
-                if ($db->Execute($query)) {
-                    if ($affectedRows = $db->Affected_Rows()) {
-                        $logs[$query] = $affectedRows;
-                    }
-                }
-            } catch (Exception $e) {
-                Context::getContext()->controller->errors[] = $e->getMessage();
-            }
+            static::executeStatement($query, $logs);
 
             $query = 'DELETE FROM `'.bqSQL($tableShop).'` WHERE `id_shop` NOT IN (SELECT `id_shop` FROM `'._DB_PREFIX_.'shop`)';
-            try {
-                if ($db->Execute($query)) {
-                    if ($affectedRows = $db->Affected_Rows()) {
-                        $logs[$query] = $affectedRows;
-                    }
-                }
-            } catch (Exception $e) {
-                Context::getContext()->controller->errors[] = $e->getMessage();
-            }
+            static::executeStatement($query, $logs);
         }
 
         // stock_available
         $query = 'DELETE FROM `'._DB_PREFIX_.'stock_available` WHERE `id_shop` NOT IN (SELECT `id_shop` FROM `'._DB_PREFIX_.'shop`) AND `id_shop_group` NOT IN (SELECT `id_shop_group` FROM `'._DB_PREFIX_.'shop_group`)';
-        try {
-            if ($db->Execute($query)) {
-                if ($affectedRows = $db->Affected_Rows()) {
-                    $logs[$query] = $affectedRows;
-                }
-            }
-        } catch (Exception $e) {
-            Context::getContext()->controller->errors[] = $e->getMessage();
-        }
+        static::executeStatement($query, $logs);
 
         Category::regenerateEntireNtree();
 
@@ -269,6 +209,30 @@ class TbCleaner extends Module
         self::clearAllCaches();
 
         return $logs;
+    }
+
+    /**
+     * Helper method to execute sql statement
+     *
+     * @param string $query
+     * @param string[]|null $logs
+     */
+    public static function executeStatement($query, &$logs = null)
+    {
+        try {
+            $db = Db::getInstance();
+            if ($db->execute($query)) {
+                if ($affectedRows = $db->Affected_Rows()) {
+                    if (is_array($logs)) {
+                        $logs[$query] = $affectedRows;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            /** @var AdminController $controller */
+            $controller = Context::getContext()->controller;
+            $controller->errors[] = $e->getMessage();
+        }
     }
 
     /**
@@ -462,11 +426,8 @@ class TbCleaner extends Module
 		DELETE FROM `'._DB_PREFIX_.'cart`
 		WHERE id_cart NOT IN (SELECT id_cart FROM `'._DB_PREFIX_.'orders`)
 		AND date_add < "'.pSQL(date('Y-m-d', strtotime('-1 month'))).'"';
-        if (Db::getInstance()->Execute($query)) {
-            if ($affectedRows = Db::getInstance()->Affected_Rows()) {
-                $logs[$query] = $affectedRows;
-            }
-        }
+
+        static::executeStatement($query, $logs);
 
         $query = '
 		DELETE FROM `'._DB_PREFIX_.'cart_rule`
@@ -476,11 +437,8 @@ class TbCleaner extends Module
 			OR date_to < "'.pSQL(date('Y-m-d')).'"
 		)
 		AND date_add < "'.pSQL(date('Y-m-d', strtotime('-1 month'))).'"';
-        if (Db::getInstance()->Execute($query)) {
-            if ($affectedRows = Db::getInstance()->Affected_Rows()) {
-                $logs[$query] = $affectedRows;
-            }
-        }
+
+        static::executeStatement($query, $logs);
 
         $parents = Db::getInstance()->ExecuteS('SELECT DISTINCT id_parent FROM '._DB_PREFIX_.'tab');
         foreach ($parents as $parent) {
@@ -488,11 +446,7 @@ class TbCleaner extends Module
             $i = 1;
             foreach ($children as $child) {
                 $query = 'UPDATE '._DB_PREFIX_.'tab SET position = '.(int) ($i++).' WHERE id_tab = '.(int) $child['id_tab'].' AND id_parent = '.(int) $parent['id_parent'];
-                if (Db::getInstance()->Execute($query)) {
-                    if ($affectedRows = Db::getInstance()->Affected_Rows()) {
-                        $logs[$query] = $affectedRows;
-                    }
-                }
+                static::executeStatement($query, $logs);
             }
         }
 
@@ -508,28 +462,16 @@ class TbCleaner extends Module
      */
     public function truncate($case)
     {
-        $db = Db::getInstance();
-        $db->execute('SET FOREIGN_KEY_CHECKS = 0;');
+        static::executeStatement('SET FOREIGN_KEY_CHECKS = 0;');
 
         switch ($case) {
             case 'catalog':
                 $idHome = Configuration::getMultiShopValues('PS_HOME_CATEGORY');
                 $idRoot = Configuration::getMultiShopValues('PS_ROOT_CATEGORY');
-                try {
-                    $db->execute('DELETE FROM `'._DB_PREFIX_.'category` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
-                } catch (Exception $e) {
-                    $this->context->controller->errors[] = $e->getMessage();
-                }
-                try {
-                    $db->execute('DELETE FROM `'._DB_PREFIX_.'category_lang` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
-                } catch (Exception $e) {
-                    $this->context->controller->errors[] = $e->getMessage();
-                }
-                try {
-                    $db->execute('DELETE FROM `'._DB_PREFIX_.'category_shop` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
-                } catch (Exception $e) {
-                    $this->context->controller->errors[] = $e->getMessage();
-                }
+                static::executeStatement('DELETE FROM `'._DB_PREFIX_.'category` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
+                static::executeStatement('DELETE FROM `'._DB_PREFIX_.'category_lang` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
+                static::executeStatement('DELETE FROM `'._DB_PREFIX_.'category_shop` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
+
                 foreach (scandir(_PS_CAT_IMG_DIR_) as $dir) {
                     if (preg_match('/^[0-9]+(\-(.*))?\.jpg$/', $dir)) {
                         unlink(_PS_CAT_IMG_DIR_.$dir);
@@ -537,17 +479,9 @@ class TbCleaner extends Module
                 }
                 $tables = self::getCatalogRelatedTables();
                 foreach ($tables as $table) {
-                    try {
-                        $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
-                    } catch (Exception $e) {
-                        $this->context->controller->errors[] = $e->getMessage();
-                    }
+                    static::executeStatement('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
                 }
-                try {
-                    $db->execute('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_manufacturer > 0 OR id_supplier > 0 OR id_warehouse > 0');
-                } catch (Exception $e) {
-                    $this->context->controller->errors[] = $e->getMessage();
-                }
+                static::executeStatement('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_manufacturer > 0 OR id_supplier > 0 OR id_warehouse > 0');
 
                 Image::deleteAllImages(_PS_PROD_IMG_DIR_);
                 if (!file_exists(_PS_PROD_IMG_DIR_)) {
@@ -581,34 +515,17 @@ class TbCleaner extends Module
                 }
 
                 foreach ($tables as $table) {
-                    try {
-                        $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
-                    } catch (Exception $e) {
-                        $this->context->controller->errors[] = $e->getMessage();
-                    }
+                    static::executeStatement('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
                 }
-                try {
-                    $db->execute('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_customer > 0');
-                } catch (Exception $e) {
-                    $this->context->controller->errors[] = $e->getMessage();
-                }
-
-                try {
-                    $db->execute('UPDATE `'._DB_PREFIX_.'employee` SET `id_last_order` = 0,`id_last_customer_message` = 0,`id_last_customer` = 0');
-                } catch (Exception $e) {
-                    $this->context->controller->errors[] = $e->getMessage();
-                }
+                static::executeStatement('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_customer > 0');
+                static::executeStatement('UPDATE `'._DB_PREFIX_.'employee` SET `id_last_order` = 0,`id_last_customer_message` = 0,`id_last_customer` = 0');
 
                 break;
         }
 
         self::clearAllCaches();
 
-        try {
-            $db->execute('SET FOREIGN_KEY_CHECKS = 1;');
-        } catch (Exception $e) {
-            $this->context->controller->errors[] = $e->getMessage();
-        }
+        static::executeStatement('SET FOREIGN_KEY_CHECKS = 1;');
     }
 
     /**
