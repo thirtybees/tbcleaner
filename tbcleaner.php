@@ -32,13 +32,17 @@ if (!defined('_CAN_LOAD_FILES_') || !defined('_TB_VERSION_')) {
  */
 class TbCleaner extends Module
 {
+    /**
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     public function __construct()
     {
         $this->name = 'tbcleaner';
         $this->tab = 'administration';
         $this->version = '2.0.2';
         $this->author = 'thirty bees';
-        $this->need_instance = 0;
+        $this->need_instance = false;
 
         $this->bootstrap = true;
         parent::__construct();
@@ -47,6 +51,12 @@ class TbCleaner extends Module
         $this->description = $this->l('Check and fix functional integrity constraints and remove default data');
     }
 
+    /**
+     * @return string
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     * @throws SmartyException
+     */
     public function getContent()
     {
         $html = '<h2>'.$this->l('Be really careful with this tool - There is no possible rollback!').'</h2>';
@@ -111,6 +121,11 @@ class TbCleaner extends Module
         return $html.$this->renderForm();
     }
 
+    /**
+     * @return array
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     public static function checkAndFix()
     {
         $db = Db::getInstance();
@@ -256,6 +271,9 @@ class TbCleaner extends Module
         return $logs;
     }
 
+    /**
+     * @return array[]
+     */
     public static function getCheckAndFixQueries()
     {
         return [
@@ -394,6 +412,11 @@ class TbCleaner extends Module
         ];
     }
 
+    /**
+     * @param array $array
+     *
+     * @return array
+     */
     protected static function bulle($array)
     {
         $sorted = false;
@@ -415,6 +438,9 @@ class TbCleaner extends Module
         return $array;
     }
 
+    /**
+     * @return void
+     */
     protected static function clearAllCaches()
     {
         $index = file_exists(_PS_TMP_IMG_DIR_.'index.php') ? file_get_contents(_PS_TMP_IMG_DIR_.'index.php') : '';
@@ -423,6 +449,11 @@ class TbCleaner extends Module
         Context::getContext()->smarty->clearAllCache();
     }
 
+    /**
+     * @return array
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     public static function cleanAndOptimize()
     {
         $logs = [];
@@ -468,6 +499,13 @@ class TbCleaner extends Module
         return $logs;
     }
 
+    /**
+     * @param string $case
+     *
+     * @return void
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     public function truncate($case)
     {
         $db = Db::getInstance();
@@ -573,6 +611,13 @@ class TbCleaner extends Module
         }
     }
 
+    /**
+     * @param string $key
+     *
+     * @return array
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     protected function getMultiShopValues($key)
     {
         if (version_compare(_PS_VERSION_, '1.6.0.3', '>=') === true) {
@@ -591,6 +636,9 @@ class TbCleaner extends Module
         }
     }
 
+    /**
+     * @return string[]
+     */
     public static function getCatalogRelatedTables()
     {
         return [
@@ -668,6 +716,9 @@ class TbCleaner extends Module
         ];
     }
 
+    /**
+     * @return string[]
+     */
     public static function getSalesRelatedTables()
     {
         return [
@@ -709,6 +760,12 @@ class TbCleaner extends Module
         ];
     }
 
+    /**
+     * @return string
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     * @throws SmartyException
+     */
     public function renderForm()
     {
         $fieldsForm1 = [
@@ -830,6 +887,9 @@ class TbCleaner extends Module
         return $helper->generateForm([$fieldsForm1, $fieldsForm2, $fieldsForm3, $fieldsForm4]);
     }
 
+    /**
+     * @return int[]
+     */
     public function getConfigFieldsValues()
     {
         return ['checkTruncateSales' => 0, 'checkTruncateCatalog' => 0];
