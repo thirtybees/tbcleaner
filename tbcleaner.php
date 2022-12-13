@@ -366,8 +366,6 @@ class TbCleaner extends Module
             ['stock', 'id_product', 'product', 'id_product'],
             ['stock_available', 'id_product', 'product', 'id_product'],
             ['stock_mvt', 'id_stock', 'stock', 'id_stock'],
-            ['tab_module_preference', 'id_employee', 'employee', 'id_employee'],
-            ['tab_module_preference', 'id_tab', 'tab', 'id_tab'],
             ['tax_rule', 'id_country', 'country', 'id_country'],
             ['warehouse_carrier', 'id_warehouse', 'warehouse', 'id_warehouse'],
             ['warehouse_carrier', 'id_carrier', 'carrier', 'id_carrier'],
@@ -518,7 +516,7 @@ class TbCleaner extends Module
                     static::executeStatement('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
                 }
                 static::executeStatement('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_customer > 0');
-                static::executeStatement('UPDATE `'._DB_PREFIX_.'employee` SET `id_last_order` = 0,`id_last_customer_message` = 0,`id_last_customer` = 0');
+                static::executeStatement('DELETE FROM `'._DB_PREFIX_.'employee_notification`');
 
                 break;
         }
