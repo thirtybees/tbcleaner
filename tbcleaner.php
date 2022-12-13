@@ -40,7 +40,7 @@ class TbCleaner extends Module
     {
         $this->name = 'tbcleaner';
         $this->tab = 'administration';
-        $this->version = '2.0.2';
+        $this->version = '2.1.0';
         $this->author = 'thirty bees';
         $this->need_instance = false;
 
