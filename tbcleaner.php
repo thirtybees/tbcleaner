@@ -473,7 +473,7 @@ class TbCleaner extends Module
                 static::executeStatement('DELETE FROM `'._DB_PREFIX_.'category_shop` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
 
                 foreach (scandir(_PS_CAT_IMG_DIR_) as $dir) {
-                    if (preg_match('/^[0-9]+(\-(.*))?\.jpg$/', $dir)) {
+                    if (preg_match('/^[0-9]+(-(.*))?\.jpg$/', $dir)) {
                         unlink(_PS_CAT_IMG_DIR_.$dir);
                     }
                 }
@@ -488,12 +488,12 @@ class TbCleaner extends Module
                     mkdir(_PS_PROD_IMG_DIR_);
                 }
                 foreach (scandir(_PS_MANU_IMG_DIR_) as $dir) {
-                    if (preg_match('/^[0-9]+(\-(.*))?\.jpg$/', $dir)) {
+                    if (preg_match('/^[0-9]+(-(.*))?\.jpg$/', $dir)) {
                         unlink(_PS_MANU_IMG_DIR_.$dir);
                     }
                 }
                 foreach (scandir(_PS_SUPP_IMG_DIR_) as $dir) {
-                    if (preg_match('/^[0-9]+(\-(.*))?\.jpg$/', $dir)) {
+                    if (preg_match('/^[0-9]+(-(.*))?\.jpg$/', $dir)) {
                         unlink(_PS_SUPP_IMG_DIR_.$dir);
                     }
                 }
