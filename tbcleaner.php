@@ -513,8 +513,8 @@ class TbCleaner extends Module
 
         switch ($case) {
             case 'catalog':
-                $idHome = $this->getMultiShopValues('PS_HOME_CATEGORY');
-                $idRoot = $this->getMultiShopValues('PS_ROOT_CATEGORY');
+                $idHome = Configuration::getMultiShopValues('PS_HOME_CATEGORY');
+                $idRoot = Configuration::getMultiShopValues('PS_ROOT_CATEGORY');
                 try {
                     $db->execute('DELETE FROM `'._DB_PREFIX_.'category` WHERE id_category NOT IN ('.implode(',', array_map('intval', $idHome)).', '.implode(',', array_map('intval', $idRoot)).')');
                 } catch (Exception $e) {
@@ -608,31 +608,6 @@ class TbCleaner extends Module
             $db->execute('SET FOREIGN_KEY_CHECKS = 1;');
         } catch (Exception $e) {
             $this->context->controller->errors[] = $e->getMessage();
-        }
-    }
-
-    /**
-     * @param string $key
-     *
-     * @return array
-     * @throws PrestaShopDatabaseException
-     * @throws PrestaShopException
-     */
-    protected function getMultiShopValues($key)
-    {
-        if (version_compare(_PS_VERSION_, '1.6.0.3', '>=') === true) {
-            return Configuration::getMultiShopValues($key);
-        } else {
-            $shops = Shop::getShops(false, null, true);
-            $idLang = (int) $this->context->language->id;
-            $results = [];
-            array_push($results, Configuration::get($key));
-
-            foreach ($shops as $idShop) {
-                array_push($results, Configuration::get($key, $idLang, null, $idShop));
-            }
-
-            return $results;
         }
     }
 
