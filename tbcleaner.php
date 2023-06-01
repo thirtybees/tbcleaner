@@ -503,6 +503,7 @@ class TbCleaner extends Module
                 $modulesTables = [
                     'sekeywords'    => ['sekeyword'],
                     'pagesnotfound' => ['pagenotfound'],
+                    'statsmodule'   => ['sekeyword', 'pagenotfound'],
                     'paypal'        => ['paypal_customer', 'paypal_order'],
                 ];
 
